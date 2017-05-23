@@ -1,0 +1,61 @@
+makedata;
+play=cell(1,31);
+hyderabad;% this converts the lat long and altitude of hyderabad in the desired ECEF coordinates
+op=zeros(3,length(t));
+for i = 1:31
+     mu=3.986005e14;
+     OMEGADOT=7.2921151467e-5;
+     A=semi1(1,i)^2;
+     n0=sqrt(mu/A^3);
+     lightspeed = 299792458;
+     n=n0;
+     M_dot=n;
+     monu=mean_anomaly1(1,i);
+     e=ecc1(1,i);
+     pg=peri1(1,i);
+    for j=1:length(t)
+        tk=t(1,j)-time1(1,i);
+        if tk>302400
+            tk=tk-604800;
+        else
+            tk=tk+604800;
+        end
+        M=monu+n*tk;
+        E=getE(M,e);        
+        v1= atan2(sqrt(1-e^2)*sin(E),cos(E)-e);
+        u=pg+v1;
+        r=A*(1-e*cos(E));
+        lambda=right_asc1(1,i)+(right_ascens_rate1(1,i)-OMEGADOT)*tk-OMEGADOT*time1(1,i);
+        x=r*cos(u);
+        y=r*sin(u);
+        xs=x*cos(lambda)-y*cos(peri1(1,i))*sin(lambda);
+        ys=x*sin(lambda)+y*cos(peri1(1,i))*cos(lambda);
+        zs=y*sin(peri1(1,i));
+        k=[xs;ys;zs];
+        op(:,j)=k;
+    end
+    play{i}=op;
+end
+
+Ele=zeros(count,96);
+Azi=zeros(count,96);
+for i = 1 :count
+    Pos_SV=play{1,i};
+    for j = 1:length(t)
+        R=Pos_SV(:,j)-Pos_Rcv;               %vector from Reciever to Satellite
+        GPS = ECEF2GPS(Pos_Rcv);        %Lattitude and Longitude of Reciever
+        Lat=GPS(1);Lon=GPS(2);
+        ENU=XYZ2ENU(R,Lat,Lon);
+        Elevation=asin(ENU(3)/norm(ENU));
+        Azimuth=atan2(ENU(1)/norm(ENU),ENU(2)/norm(ENU));
+        Ele(i,j)=Elevation;
+        Azi(i,j)=Azimuth;
+    end 
+end   
+Ele=Ele*180/pi;
+Azi=Azi*180/pi;
+
+Ele1=Ele;
+figure;
+Ele1=Ele.*double((Ele>0));
+plot(times,Ele1(1,:));
